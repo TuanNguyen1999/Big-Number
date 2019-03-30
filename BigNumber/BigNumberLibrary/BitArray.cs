@@ -11,21 +11,34 @@ namespace BigNumberLibrary
     /// </summary>
     public class BitArray
     {
+        public enum BitMode
+        {
+            Standard = 0,
+            ComplimentTwo = 2
+        }
+
+        /// <summary>Represent the amount of bits in array</summary>
+        public uint TotalBits { get; protected set; }
+        /// <summary>An array of bytes which represents the bits serie</summary>
+        public byte[] BytesArray { get; protected set; }
+        /// <summary>Represent the amount of bytes needed to store the bits serie</summary>
+        public uint TotalBytes { get; protected set; }
+
         /// <summary> 
         /// <para>Represent all possible byte values which contain only one bit 1.
-        /// Indexing is equivalent to placing a bit 1 to that index in byte.</para>
-        /// <example>For example:
-        /// <c>ByteWithBitOneAt[0]</c> is equal to 0000 0001
+        /// Indexing is equivalent to placing a bit 1 to that index in array.</para>
+        /// <example>e.g:
+        /// <c>ByteWithBitOneAt[0]</c> return 1000 0000
         /// </example> 
         /// </summary>
-        static public readonly List<byte> ByteWithBitOneAt = new List<byte>() { 1, 2, 4, 8, 16, 32, 64, 128 };
+        static public readonly List<byte> ByteWithBitOneAt = new List<byte>() { 128, 64, 32, 16, 8, 4, 2, 1 };
 
         /// <summary>
-        /// Create an instance with all bit set to 0
+        /// Create an array with all bit set to 0
         /// </summary>
         /// <param name="totalbits">Represent the amount of bits in array</param>
         /// <returns>BitArray instance with all bit set to 0</returns>
-        protected static BitArray AllZero(uint totalbits)
+        protected static byte[] AllZero(uint totalbits)
         {
             BitArray result = new BitArray(totalbits);
             byte min = 0x00; // 0000 0000
@@ -33,15 +46,15 @@ namespace BigNumberLibrary
             {
                 result.BytesArray[i] = min;
             }
-            return result;
+            return result.BytesArray;
         }
 
         /// <summary>
-        /// Create an instance with all bit set to 1
+        /// Create an array with all bit set to 1
         /// </summary>
         /// <param name="totalbits">Represent the amount of bits in array</param>
         /// <returns>BitArray instance with all bit set to 1</returns>
-        protected static BitArray AllOne(uint totalbits)
+        protected static byte[] AllOne(uint totalbits)
         {
             BitArray result = new BitArray(totalbits);
             byte max = 0xff; // 1111 1111
@@ -49,7 +62,7 @@ namespace BigNumberLibrary
             {
                 result.BytesArray[i] = max;
             }
-            return result;
+            return result.BytesArray;
         }
 
         /// <summary>
@@ -67,40 +80,56 @@ namespace BigNumberLibrary
             BytesArray = (byte[])System.Array.CreateInstance(typeof(byte), TotalBytes);
         }
 
-        /// <summary>Represent the amount of bits in array</summary>
-        public uint TotalBits { get; private set; }
-        /// <summary>An array of bytes which represents the bits serie</summary>
-        public byte[] BytesArray { get; private set; }
-        /// <summary>Represent the amount of bytes needed to store the bits serie</summary>
-        public uint TotalBytes { get; private set; }
+        /// <summary>
+        /// Set byte at <paramref name="i"/> postion to the value of <paramref name="value"/>.
+        /// Note that for easier when doing arithmetic, <paramref name="reverse"/> is set to <see langword="true"/> by default
+        /// </summary>
+        /// <param name="i">position of byte to be set. Start at 0</param>
+        /// <param name="value">new value</param>
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        public void SetByte(uint i, byte value, bool reverse = true)
+        {
+            if(!reverse)
+                BytesArray[i % TotalBytes] = value;
+            else
+                BytesArray[TotalBytes - 1 - i % TotalBytes] = value;
+        }
 
         /// <summary>
-        /// Extract bit at given position. Note that for easier when doing arithmetic and bitwise operations,
-        /// <para>Indexing will start from right to left, 
-        /// which means last bit of last array will have the index of 0,
-        /// and the bit next to it will be 1 and so on</para>
+        /// Get byte at <paramref name="i"/> postion.
+        /// Note that for easier when doing arithmetic, <paramref name="reverse"/> is set to <see langword="true"/> by default
         /// </summary>
-        /// <param name="i">Position of bit to be extracted</param>
-        /// <returns>true if requested bit is 1, otherwise false</returns>
-        public bool GetBitAt(uint i)
+        /// <param name="i">position of requested byte</param>
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        /// <returns>byte value at position <paramref name="i"/></returns>
+        public byte GetByte(uint i, bool reverse = true)
+        {
+            return (!reverse ? BytesArray[i % TotalBytes] : BytesArray[TotalBytes - 1 - i % TotalBytes]);
+        }
+
+        /// <summary>
+        /// Extract requested bit at position <paramref name="i"/>.
+        /// Note that for easier when doing arithmetic, <paramref name="reverse"/> is set to <see langword="true"/> by default
+        /// </summary>
+        /// <param name="i">position of requested bit</param>
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        /// <returns>True if requested bit is 1, false otherwise</returns>
+        public bool GetBit(uint i,bool reverse = true)
         {
             // Guarantee i is not out of range
             i %= TotalBits;
-
-            // Workout the index of byte containing requested bit
             uint byte_index = i / 8u;
-            // But because first bit is in the right most of array,
-            // Reverse byte order to get the actual index
-            byte_index = TotalBytes - 1 - byte_index;
+            // Workout the byte containing requested bit
+            byte _byte = GetByte(byte_index, reverse);
 
-            byte get_byte = BytesArray[TotalBytes - 1 - i / 8u];
-
-            // Using the received index to find corresponding byte
+            // Find the corresponding byte in <ByteWithBitOneAt> list
             // and perform & operator to extract that bit
             // Example if we want to check the fourth bit from the right in 0110 0001,
             //                 v           v                                     ^
             // we perform 0110 0001 & 0000 1000 to extract that bit 0 from the serie
-            int bit = get_byte & ByteWithBitOneAt[(int)(i % 8u)];
+            // Note that if reverse is set, indexing starts from the right instead of left
+            int _index = (reverse ? ByteWithBitOneAt.Count - 1 - (int)(i % 8u) : (int)(i % 8u));
+            int bit = _byte & ByteWithBitOneAt[_index];
 
             return bit != 0;
         }
@@ -110,53 +139,61 @@ namespace BigNumberLibrary
         /// </summary>
         /// <param name="i">The bit to be set</param>
         /// <param name="state">true = set to 1, otherwise 0</param>
-        public void SetBitAt(uint i,bool state)
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        public void SetBit(uint i,bool state, bool reverse = true)
         {
             if (state)
-                TurnOnBit(i);
+                TurnOnBit(i, reverse);
             else
-                TurnOffBit(i);
+                TurnOffBit(i, reverse);
         }
 
         /// <summary>
         /// Set the bit at position <paramref name="i"/> to 0
         /// </summary>
         /// <param name="i">Position of bit to be turn off</param>
-        public void TurnOffBit(uint i)
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        public void TurnOffBit(uint i, bool reverse = true)
         {
             i %= TotalBits;
+            uint byte_index = i / 8u;
 
-            // Workout actual index of byte containing requested bit
-            uint get_byte_index = TotalBytes - 1 - i / 8u;
-            ref byte get_byte = ref BytesArray[get_byte_index];
+            int _byte = GetByte(byte_index, reverse);
+
+            // if reverse is set, indexing starts from the right instead of left
+            int _index = (reverse ? ByteWithBitOneAt.Count - 1 - (int)(i % 8u) : (int)(i % 8u));
 
             // Perform & with corresponding byte       v
             // Example: To turn of the fifth bit of 0011 1100
             //        v           v              v             v              v
             // Do (0011 1100 & 1110 1111) or (0011 1100 & ~(0001 0000)) => 0010 1100
-            int new_byte = get_byte & ~ByteWithBitOneAt[(int)(i % 8u)];
+            int new_byte = _byte & ~ByteWithBitOneAt[_index];
 
-            get_byte = (byte)new_byte;
+            SetByte(byte_index, (byte)new_byte, reverse);
         }
 
         /// <summary>
         /// Set the bit at position <paramref name="i"/> to 1
         /// </summary>
         /// <param name="i">Position of bit to be turn on</param>
-        public void TurnOnBit(uint i)
+        /// <param name="reverse">Indicate that indexing starts from the right instead of left</param>
+        public void TurnOnBit(uint i, bool reverse = true)
         {
             i %= TotalBits;
+            uint byte_index = i / 8u;
 
-            uint get_byte_index = TotalBytes - 1u - i / 8u;
-            ref byte get_byte = ref BytesArray[get_byte_index];
+            int _byte = GetByte(byte_index, reverse);
+
+            // if reverse is set, indexing starts from the right instead of left
+            int _index = (reverse ? ByteWithBitOneAt.Count - 1 - (int)(i % 8u) : (int)(i % 8u));
 
             // Perform | with corresponding byte       v
             // Example: To turn on the fifth bit of 0010 1100                 v
             //        v           v             v
             // Do (0010 1100 | 0001 0000) => 0010 1100
-            int new_byte = get_byte | ByteWithBitOneAt[(int)(i % 8u)];
+            int new_byte = _byte | ByteWithBitOneAt[_index];
 
-            get_byte = (byte)new_byte;
+            SetByte(byte_index, (byte)new_byte, reverse);
         }
     }
 
