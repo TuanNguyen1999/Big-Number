@@ -76,7 +76,6 @@ namespace BigNumberLibrary
 
             //Add one extra byte if the amount of bits is not a multiple of 8
             TotalBytes = (TotalBits % 8u == 0) ? TotalBits / 8u : TotalBits / 8u + 1;
-
             BytesArray = (byte[])System.Array.CreateInstance(typeof(byte), TotalBytes);
         }
 
